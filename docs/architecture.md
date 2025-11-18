@@ -503,7 +503,7 @@ flowchart TB
   ECS -->|SSM / Exec| EP_SSM
 
   NAT --> IGW
-  ECS -->|Internet (fallback)| NAT
+  ECS --> NAT
 
   ECS --> CW_ECS
   VPC --> CW_VPC

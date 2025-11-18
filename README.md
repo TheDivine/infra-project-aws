@@ -1,4 +1,5 @@
-<img width="3728" height="1672" alt="image" src="https://github.com/user-attachments/assets/22750fb1-e0b1-41b1-ab64-4aba4fdf44b3" />
+<img width="3728" height="1672" alt="image" src="https://github.com/user-attachments/assets/e8d50ec3-a9a2-47eb-9d5a-cff282fed90f" />
+
 
 # Home Project 1 – Terraform AWS Stack
 

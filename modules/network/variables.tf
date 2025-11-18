@@ -20,3 +20,39 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_s3_endpoint" {
+  description = "Create a gateway VPC endpoint for S3"
+  type        = bool
+  default     = false
+}
+
+variable "enable_dynamodb_endpoint" {
+  description = "Create a gateway VPC endpoint for DynamoDB"
+  type        = bool
+  default     = false
+}
+
+variable "enable_ssm_endpoint" {
+  description = "Create interface VPC endpoints for SSM/SSM Messages"
+  type        = bool
+  default     = false
+}
+
+variable "enable_flow_logs" {
+  description = "Toggle VPC flow logs streaming to CloudWatch Logs"
+  type        = bool
+  default     = false
+}
+
+variable "flow_logs_log_group_name" {
+  description = "Optional name for the VPC flow logs CloudWatch log group"
+  type        = string
+  default     = ""
+}
+
+variable "flow_logs_retention_in_days" {
+  description = "Retention period for VPC flow logs"
+  type        = number
+  default     = 90
+}

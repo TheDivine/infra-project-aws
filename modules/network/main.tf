@@ -14,6 +14,8 @@ locals {
   private_subnet_count = length(var.private_subnet_cidrs)
 }
 
+data "aws_region" "current" {}
+
 # VPC
 resource "aws_vpc" "main" {
   cidr_block       = var.vpc_cidr
@@ -117,6 +119,175 @@ resource "aws_nat_gateway" "nat_gw" {
   depends_on    = [aws_internet_gateway.igw]
   tags = merge(var.tags, {
     Name = "NAT Gateway"
+  })
+}
+
+##### Optional Network Enhancements #####
+
+# Flow logs -> CloudWatch Logs
+resource "aws_cloudwatch_log_group" "flow_logs" {
+  count = var.enable_flow_logs ? 1 : 0
+
+  name              = var.flow_logs_log_group_name != "" ? var.flow_logs_log_group_name : "/aws/vpc/${aws_vpc.main.id}/flow-logs"
+  retention_in_days = var.flow_logs_retention_in_days
+  tags = merge(var.tags, {
+    Name = "vpc-flow-logs"
+  })
+}
+
+resource "aws_iam_role" "flow_logs" {
+  count = var.enable_flow_logs ? 1 : 0
+
+  name = "${replace(aws_vpc.main.id, "-", "")}-flow-logs"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "vpc-flow-logs.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+  tags = merge(var.tags, {
+    Name = "vpc-flow-logs"
+  })
+}
+
+resource "aws_iam_role_policy" "flow_logs" {
+  count = var.enable_flow_logs ? 1 : 0
+
+  name = "${aws_vpc.main.id}-flow-logs"
+  role = aws_iam_role.flow_logs[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_flow_log" "vpc" {
+  count = var.enable_flow_logs ? 1 : 0
+
+  traffic_type         = "ALL"
+  vpc_id               = aws_vpc.main.id
+  log_destination_type = "cloud-watch-logs"
+  log_group_name       = aws_cloudwatch_log_group.flow_logs[0].name
+  iam_role_arn         = aws_iam_role.flow_logs[0].arn
+  tags = merge(var.tags, {
+    Name = "vpc-flow-logs"
+  })
+}
+
+# Gateway endpoints
+resource "aws_vpc_endpoint" "s3" {
+  count = var.enable_s3_endpoint ? 1 : 0
+
+  vpc_id            = aws_vpc.main.id
+  vpc_endpoint_type = "Gateway"
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
+  route_table_ids   = [aws_route_table.public_rt.id, aws_route_table.private_rt.id]
+
+  tags = merge(var.tags, {
+    Name = "s3-endpoint"
+  })
+}
+
+resource "aws_vpc_endpoint" "dynamodb" {
+  count = var.enable_dynamodb_endpoint ? 1 : 0
+
+  vpc_id            = aws_vpc.main.id
+  vpc_endpoint_type = "Gateway"
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.dynamodb"
+  route_table_ids   = [aws_route_table.public_rt.id, aws_route_table.private_rt.id]
+
+  tags = merge(var.tags, {
+    Name = "dynamodb-endpoint"
+  })
+}
+
+# Interface endpoints for SSM
+resource "aws_security_group" "interface_endpoints" {
+  count = var.enable_ssm_endpoint ? 1 : 0
+
+  name        = "${aws_vpc.main.id}-ssm-endpoints"
+  description = "Allow interface endpoint traffic for SSM"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "TLS from within the VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(var.tags, {
+    Name = "ssm-endpoints"
+  })
+}
+
+resource "aws_vpc_endpoint" "ssm" {
+  count = var.enable_ssm_endpoint ? 1 : 0
+
+  vpc_id              = aws_vpc.main.id
+  vpc_endpoint_type   = "Interface"
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.ssm"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.interface_endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "ssm-endpoint"
+  })
+}
+
+resource "aws_vpc_endpoint" "ssm_messages" {
+  count = var.enable_ssm_endpoint ? 1 : 0
+
+  vpc_id              = aws_vpc.main.id
+  vpc_endpoint_type   = "Interface"
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.ssmmessages"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.interface_endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "ssmmessages-endpoint"
+  })
+}
+
+resource "aws_vpc_endpoint" "ec2_messages" {
+  count = var.enable_ssm_endpoint ? 1 : 0
+
+  vpc_id              = aws_vpc.main.id
+  vpc_endpoint_type   = "Interface"
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.ec2messages"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.interface_endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "ec2messages-endpoint"
   })
 }
 

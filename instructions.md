@@ -93,3 +93,27 @@ use the root module's AWS provider configuration. Once it succeeds, re-run
 `terraform plan -var-file=../../terraform.tfvars -out=<env>.tfplan` and the
 plan will complete normally.
 
+## Additional documentation
+
+- `docs/architecture.md` — detailed explanation of the overall AWS
+  architecture, modules, and data/traffic flows.
+- `docs/runbook.md` — operator runbook covering environment deployment,
+  app deployments, scaling, secrets, and common operational tasks.
+
+## Module reference
+
+- `modules/network`: Builds the VPC, public/private subnets, NAT gateway,
+  optional VPC flow logs, and optional VPC endpoints (S3, DynamoDB, SSM).
+- `modules/compute_fargate`: Provisions an ECS/Fargate service behind an
+  Application Load Balancer with optional HTTPS via ACM.
+- `modules/rds`: Creates a PostgreSQL RDS instance, subnet group, and security
+  group with sane defaults for dev/prod.
+- `modules/redis`: Creates a Redis replication group (ElastiCache) plus subnet
+  and security groups.
+- `modules/shared_services`: Owns the Route53 hosted zone and the ACM
+  certificate (DNS-validated) for ingress TLS.
+
+Each environment overlay composes these building blocks. Dev (`env/dev/us-east-1`)
+demonstrates the full stack (network + shared services + compute + data). Extend
+other environments by copying the same module invocations and adjusting each
+`terraform.tfvars`.

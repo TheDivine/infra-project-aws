@@ -447,3 +447,67 @@ This design follows AWS best practices for production workloads: private
 compute and data tiers, public ingress via ALB, optional private connectivity
 to AWS APIs via endpoints, and centralized logging.
 
+---
+
+## 9. Mermaid Architecture Diagram
+
+The following diagram captures the main components and data flows in the
+stack at a high level:
+
+```mermaid
+flowchart TB
+  subgraph Internet
+    User[User Browser]
+  end
+
+  subgraph Route53[Route53 Hosted Zone]
+    DNS[app.domain -> ALB Alias]
+  end
+
+  subgraph VPC[VPC]
+    direction TB
+
+    subgraph Public[Public Subnets]
+      ALB[ALB\nHTTP/HTTPS]
+      NAT[NAT Gateway]
+      IGW[Internet Gateway]
+    end
+
+    subgraph Private[Private Subnets]
+      ECS[ECS Fargate\nTasks/Service]
+      RDS[(RDS PostgreSQL)]
+      Redis[(Redis ElastiCache)]
+    end
+
+    subgraph Endpoints[VPC Endpoints]
+      EP_S3[S3 Gateway EP]
+      EP_DDB[DynamoDB Gateway EP]
+      EP_SSM[SSM/SSMMessages/EC2Messages\nInterface EPs]
+    end
+  end
+
+  subgraph CloudWatch[CloudWatch Logs]
+    CW_ECS[ECS Task Logs]
+    CW_VPC[VPC Flow Logs]
+  end
+
+  User -->|HTTPS| DNS
+  DNS --> ALB
+
+  ALB -->|HTTP| ECS
+  ECS -->|SQL| RDS
+  ECS -->|Cache Ops| Redis
+
+  ECS -->|AWS API Calls| EP_S3
+  ECS -->|AWS API Calls| EP_DDB
+  ECS -->|SSM / Exec| EP_SSM
+
+  NAT --> IGW
+  ECS -->|Internet (fallback)| NAT
+
+  ECS --> CW_ECS
+  VPC --> CW_VPC
+```
+
+You can paste this Mermaid block into any Mermaid-enabled viewer (GitHub,
+VS Code with a Mermaid extension, etc.) to visualize the environment.

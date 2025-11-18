@@ -1,3 +1,5 @@
+<img width="3728" height="1672" alt="image" src="https://github.com/user-attachments/assets/22750fb1-e0b1-41b1-ab64-4aba4fdf44b3" />
+
 # Home Project 1 – Terraform AWS Stack
 
 This repository defines a reusable, production-style AWS infrastructure stack
